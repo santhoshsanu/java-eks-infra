@@ -1,0 +1,26 @@
+# ── Terraform ──────────────────────────────────────────────────────────────────
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+terraform/tfplan
+terraform/*.tfvars.backup
+
+# ── AWS / Keys ─────────────────────────────────────────────────────────────────
+*.pem
+*.ppk
+.aws/
+alb-iam-policy.json
+
+# ── IDE ────────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log

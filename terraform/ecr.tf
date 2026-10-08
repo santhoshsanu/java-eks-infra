@@ -101,3 +101,97 @@ resource "aws_ecr_lifecycle_policy" "frontend_policy" {
     ]
   })
 }
+
+# ─── ECR Repository — User Service ───────────────────────────────────────────
+
+resource "aws_ecr_repository" "user_service" {
+  name                 = "java-eks-user-service"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "java-eks-user-service"
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "user_service_policy" {
+  repository = aws_ecr_repository.user_service.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Remove untagged images after 7 days"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 7
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 2
+        description  = "Keep only last 10 tagged images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["build-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
+        }
+        action = { type = "expire" }
+      }
+    ]
+  })
+}
+
+# ─── ECR Repository — Order Service ──────────────────────────────────────────
+
+resource "aws_ecr_repository" "order_service" {
+  name                 = "java-eks-order-service"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "java-eks-order-service"
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "order_service_policy" {
+  repository = aws_ecr_repository.order_service.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Remove untagged images after 7 days"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 7
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 2
+        description  = "Keep only last 10 tagged images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["build-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
+        }
+        action = { type = "expire" }
+      }
+    ]
+  })
+}

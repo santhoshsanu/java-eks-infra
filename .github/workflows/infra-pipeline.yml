@@ -15,6 +15,7 @@ on:
   push:
     paths:
       - 'terraform/**'
+      - 'monitoring/**'
 
   # ── Manual trigger — run from GitHub Actions UI ────────────────────────────
   workflow_dispatch:
@@ -186,7 +187,80 @@ jobs:
         continue-on-error: true
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  JOB 3 — TERRAFORM DESTROY
+#  JOB 3 — DEPLOY MONITORING STACK
+#  Runs after terraform-apply — deploys OTEL + Prometheus + Grafana to EKS
+# ══════════════════════════════════════════════════════════════════════════════
+  deploy-monitoring:
+    name: "Deploy Monitoring Stack"
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Configure kubectl for EKS
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name java-eks-cluster
+          kubectl get nodes
+          echo "✅ kubectl configured"
+
+      - name: Deploy Monitoring Stack
+        run: |
+          echo "========== DEPLOYING MONITORING STACK =========="
+
+          # Create monitoring namespace first
+          kubectl apply -f monitoring/namespace.yaml
+          echo "✅ Namespace created"
+
+          # Wait for namespace to be ready
+          sleep 5
+
+          # Deploy OTEL Collector
+          kubectl apply -f monitoring/otel-collector.yaml
+          echo "✅ OTEL Collector deployed"
+
+          # Deploy Prometheus
+          kubectl apply -f monitoring/prometheus.yaml
+          echo "✅ Prometheus deployed"
+
+          # Deploy Grafana
+          kubectl apply -f monitoring/grafana.yaml
+          echo "✅ Grafana deployed"
+
+      - name: Wait for monitoring pods
+        run: |
+          echo "⏳ Waiting for monitoring pods..."
+          kubectl rollout status deployment/otel-collector -n monitoring --timeout=180s
+          kubectl rollout status deployment/prometheus -n monitoring --timeout=180s
+          kubectl rollout status deployment/grafana -n monitoring --timeout=180s
+          echo "✅ All monitoring pods running"
+
+      - name: Print monitoring status
+        run: |
+          echo "════════════════════════════════════════"
+          echo "  Monitoring Stack Status"
+          kubectl get pods -n monitoring
+          echo ""
+          echo "  Grafana URL:"
+          kubectl get svc grafana -n monitoring
+          echo "════════════════════════════════════════"
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  JOB 4 — TERRAFORM DESTROY
 #  Runs on: manual trigger with action=destroy ONLY
 #  Requires: production environment approval (you must click approve)
 # ══════════════════════════════════════════════════════════════════════════════

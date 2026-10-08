@@ -36,6 +36,29 @@ resource "aws_security_group" "eks_cluster_sg" {
   }
 }
 
+# ─── Add rules to AWS-managed EKS cluster security group ─────────────────────
+# AWS creates this SG automatically — we need to add ingress rules to it
+
+resource "aws_security_group_rule" "eks_managed_sg_http" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  description       = "Allow HTTP for LoadBalancers"
+}
+
+resource "aws_security_group_rule" "eks_managed_sg_grafana" {
+  type              = "ingress"
+  from_port         = 3000
+  to_port           = 3000
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  description       = "Allow Grafana NLB"
+}
+
 # ─── EKS Cluster ─────────────────────────────────────────────────────────────
 
 resource "aws_eks_cluster" "main" {

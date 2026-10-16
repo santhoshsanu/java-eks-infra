@@ -61,24 +61,43 @@ data:
         const_labels:
           cluster: java-eks-cluster
 
-      # Debug logging — useful during setup
+      # Sends traces to Jaeger
+      otlp/jaeger:
+        endpoint: "jaeger.monitoring.svc.cluster.local:4317"
+        tls:
+          insecure: true
+
+      # Sends logs to Loki
+      loki:
+        endpoint: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+        default_labels_enabled:
+          exporter: false
+          job: true
+
+      # Debug logging
       debug:
         verbosity: basic
 
     service:
       extensions: [health_check]
       pipelines:
-        # Metrics pipeline: receive → process → export to Prometheus
+        # Metrics pipeline
         metrics:
           receivers:  [otlp, prometheus]
           processors: [memory_limiter, batch, resource]
           exporters:  [prometheus, debug]
 
-        # Traces pipeline: receive → process → log (Jaeger added in Phase 2)
+        # Traces pipeline → Jaeger
         traces:
           receivers:  [otlp]
           processors: [memory_limiter, batch, resource]
-          exporters:  [debug]
+          exporters:  [otlp/jaeger, debug]
+
+        # Logs pipeline → Loki
+        logs:
+          receivers:  [otlp]
+          processors: [memory_limiter, batch, resource]
+          exporters:  [loki, debug]
 
 ---
 # ── Deployment ────────────────────────────────────────────────────────────────

@@ -95,3 +95,45 @@ resource "helm_release" "alb_controller" {
     aws_eks_node_group.main
   ]
 }
+
+# ─── Node Exporter ────────────────────────────────────────────────────────────
+# Collects EC2 node metrics: CPU, RAM, disk, network
+# Runs as DaemonSet — one pod per node
+
+resource "helm_release" "node_exporter" {
+  name       = "node-exporter"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "prometheus-node-exporter"
+  namespace  = "monitoring"
+  version    = "4.24.0"
+
+  create_namespace = true
+
+  set {
+    name  = "tolerations[0].effect"
+    value = "NoSchedule"
+  }
+
+  set {
+    name  = "tolerations[0].operator"
+    value = "Exists"
+  }
+
+  depends_on = [aws_eks_node_group.main]
+}
+
+# ─── kube-state-metrics ───────────────────────────────────────────────────────
+# Collects K8s object metrics: pod status, deployment replicas, node conditions
+# Required for dashboard 3896 (K8s cluster monitoring)
+
+resource "helm_release" "kube_state_metrics" {
+  name       = "kube-state-metrics"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "kube-state-metrics"
+  namespace  = "monitoring"
+  version    = "5.15.2"
+
+  create_namespace = true
+
+  depends_on = [aws_eks_node_group.main]
+}

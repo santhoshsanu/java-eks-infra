@@ -23,6 +23,22 @@ data:
         isDefault: true
         editable: true
 
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        isDefault: false
+        editable: true
+        jsonData:
+          maxLines: 1000
+
+      - name: Jaeger
+        type: jaeger
+        access: proxy
+        url: http://jaeger.monitoring.svc.cluster.local:16686
+        isDefault: false
+        editable: true
+
 ---
 # ── ConfigMap — Dashboard provisioning ───────────────────────────────────────
 apiVersion: v1

@@ -222,32 +222,33 @@ jobs:
         run: |
           echo "========== DEPLOYING MONITORING STACK =========="
 
-          # Create monitoring namespace first
           kubectl apply -f monitoring/namespace.yaml
-          echo "✅ Namespace created"
-
-          # Wait for namespace to be ready
           sleep 5
 
-          # Deploy OTEL Collector
+          # Phase 1 — Metrics
           kubectl apply -f monitoring/otel-collector.yaml
-          echo "✅ OTEL Collector deployed"
-
-          # Deploy Prometheus
           kubectl apply -f monitoring/prometheus.yaml
-          echo "✅ Prometheus deployed"
-
-          # Deploy Grafana
           kubectl apply -f monitoring/grafana.yaml
-          echo "✅ Grafana deployed"
+
+          # Phase 2 — Logs
+          kubectl apply -f monitoring/loki.yaml
+          kubectl apply -f monitoring/fluent-bit.yaml
+
+          # Phase 2 — Traces
+          kubectl apply -f monitoring/jaeger.yaml
+
+          echo "✅ Full monitoring stack deployed"
 
       - name: Wait for monitoring pods
-        continue-on-error: true   # don't fail pipeline if grafana is slow
+        continue-on-error: true
         run: |
           echo "⏳ Waiting for monitoring pods..."
           kubectl rollout status deployment/otel-collector -n monitoring --timeout=180s
           kubectl rollout status deployment/prometheus -n monitoring --timeout=180s
+          kubectl rollout status deployment/loki -n monitoring --timeout=180s
+          kubectl rollout status deployment/jaeger -n monitoring --timeout=180s
           kubectl rollout status deployment/grafana -n monitoring --timeout=300s
+          kubectl rollout status daemonset/fluent-bit -n monitoring --timeout=180s
           echo "✅ All monitoring pods running"
 
       - name: Print monitoring status

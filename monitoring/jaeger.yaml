@@ -1,0 +1,86 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  Jaeger — Distributed Tracing
+#  Receives traces from OTEL Collector
+#  Visualized in Grafana via Jaeger datasource
+# ══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: monitoring
+  labels:
+    app: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.54
+          ports:
+            - containerPort: 16686  # Jaeger UI
+              name: ui
+            - containerPort: 4317   # OTLP gRPC receiver
+              name: otlp-grpc
+            - containerPort: 4318   # OTLP HTTP receiver
+              name: otlp-http
+            - containerPort: 14250  # gRPC collector
+              name: grpc-collector
+          env:
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+            - name: SPAN_STORAGE_TYPE
+              value: "memory"       # use elasticsearch for production
+            - name: MEMORY_MAX_TRACES
+              value: "10000"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "300m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 16686
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 16686
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: monitoring
+  labels:
+    app: jaeger
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - name: ui
+      port: 16686
+      targetPort: 16686
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: grpc-collector
+      port: 14250
+      targetPort: 14250

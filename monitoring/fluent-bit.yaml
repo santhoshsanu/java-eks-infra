@@ -87,9 +87,9 @@ data:
         Match           kube.*
         Host            loki.monitoring.svc.cluster.local
         Port            3100
-        Labels          job=fluent-bit, namespace=$kubernetes['namespace_name'], pod=$kubernetes['pod_name'], container=$kubernetes['container_name']
-        Label_Keys      $kubernetes['labels']['app']
-        Remove_Keys     kubernetes, stream
+        Labels          job=fluent-bit
+        Label_Keys      $kubernetes['namespace_name'],$kubernetes['pod_name'],$kubernetes['container_name']
+        Remove_Keys     stream
         Line_Format     json
         Auto_Kubernetes_Labels On
 

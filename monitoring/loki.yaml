@@ -1,9 +1,21 @@
 # ══════════════════════════════════════════════════════════════════════════════
-#  Loki — Log Storage
-#  Receives logs from Fluent Bit
-#  Queried by Grafana for log visualization
+#  Loki — Persistent Log Storage
+#  Uses EBS gp3 via PVC — logs survive pod restarts and node replacements
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ── StorageClass — EBS gp3 ────────────────────────────────────────────────────
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+volumeBindingMode: WaitForFirstConsumer  # creates EBS in same AZ as pod
+allowVolumeExpansion: true
+reclaimPolicy: Retain                    # keeps EBS even if PVC deleted
+
+---
 # ── ConfigMap — Loki configuration ───────────────────────────────────────────
 apiVersion: v1
 kind: ConfigMap
@@ -44,19 +56,27 @@ data:
       ingestion_rate_mb: 16
       ingestion_burst_size_mb: 32
 
+    # ── Compactor — enforces retention_period ─────────────────────────────────
+    # Without this, retention_period: 7d does nothing
+    compactor:
+      working_directory: /loki/compactor
+      shared_store: filesystem
+      retention_enabled: true
+
     ruler:
       alertmanager_url: http://localhost:9093
 
 ---
-# ── Deployment ────────────────────────────────────────────────────────────────
+# ── StatefulSet — replaces Deployment for stable storage ─────────────────────
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: loki
   namespace: monitoring
   labels:
     app: loki
 spec:
+  serviceName: loki
   replicas: 1
   selector:
     matchLabels:
@@ -66,6 +86,10 @@ spec:
       labels:
         app: loki
     spec:
+      securityContext:
+        fsGroup: 10001      # Loki runs as uid 10001 — lets it write to EBS volume
+        runAsUser: 10001
+        runAsGroup: 10001
       containers:
         - name: loki
           image: grafana/loki:2.9.4
@@ -80,7 +104,7 @@ spec:
             - name: config
               mountPath: /etc/loki
             - name: storage
-              mountPath: /loki
+              mountPath: /loki       # EBS volume mounted here
           resources:
             requests:
               cpu: "100m"
@@ -104,8 +128,18 @@ spec:
         - name: config
           configMap:
             name: loki-config
-        - name: storage
-          emptyDir: {}   # use PVC for production
+        # storage volume is provided by volumeClaimTemplates below
+
+  # ── PVC Template — EBS gp3 10GB per Loki pod ─────────────────────────────
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 10Gi
 
 ---
 # ── Service ───────────────────────────────────────────────────────────────────

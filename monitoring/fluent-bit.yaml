@@ -61,6 +61,7 @@ data:
         Refresh_Interval  5
         Mem_Buf_Limit     50MB
         Skip_Long_Lines   On
+        DB                /var/log/flb_kube.db    # tracks read position — survives restarts
 
     # ── FILTER — Add Kubernetes metadata (pod name, namespace, labels) ─────
     [FILTER]
